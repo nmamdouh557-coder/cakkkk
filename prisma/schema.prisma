@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String         @id @default(uuid())
+  username     String         @unique
+  password     String
+  displayName  String
+  email        String         @unique
+  role         String         @default("employee")
+  createdAt    DateTime       @default(now())
+  offers       Offer[]        @relation("UserOffers")
+  notifications NotificationUser[]
+
+  @@map("users")
+}
+
+model Offer {
+  id           String      @id @default(uuid())
+  brand        String
+  title        String
+  description  String
+  productPrice String?
+  startDate    DateTime
+  endDate      DateTime
+  imageUrl     String?
+  status       String      @default("active")
+  createdBy    String
+  creator      User        @relation("UserOffers", fields: [createdBy], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("offers")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  title     String
+  message   String
+  type      String
+  createdAt DateTime         @default(now())
+  users     NotificationUser[]
+
+  @@map("notifications")
+}
+
+model NotificationUser {
+  id             String       @id @default(uuid())
+  notificationId String
+  userId         String
+  read           Boolean      @default(false)
+  notification   Notification @relation(fields: [notificationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@map("notification_users")
+}
