@@ -49,21 +49,41 @@ const isAdmin = (req: any, res: any, next: any) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
+  console.log(`Login attempt for user: ${username}`);
   try {
     const user = await prisma.user.findUnique({ where: { username } });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) {
+      console.log('User not found');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!isMatch) {
+      console.log('Password mismatch');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     
     // Don't send password
     const { password: _, ...userWithoutPassword } = user;
     res.json({ user: userWithoutPassword, token });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+  } catch (error: any) {
+    console.error('CRITICAL Login error:', error.message || error);
+    res.status(500).json({ 
+      error: 'Login failed', 
+      details: process.env.NODE_ENV === 'production' ? 'Database connection error' : error.message 
+    });
+  }
+});
+
+// Health check to verify DB
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', database: 'connected' });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', database: error.message });
   }
 });
 
