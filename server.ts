@@ -21,7 +21,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_123';
 
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -126,13 +127,14 @@ app.get('/api/offers', authenticateToken, async (req, res) => {
 
 app.post('/api/offers', authenticateToken, async (req, res) => {
   const { brand, title, description, productPrice, startDate, endDate, imageUrl, status } = req.body;
+  console.log('Creating offer:', { brand, title, createdBy: (req as any).user.id });
   try {
     const offer = await prisma.offer.create({
       data: {
         brand,
         title,
         description,
-        productPrice,
+        productPrice: productPrice ? String(productPrice) : null,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         imageUrl,
@@ -141,33 +143,40 @@ app.post('/api/offers', authenticateToken, async (req, res) => {
       }
     });
     
+    console.log('Offer created:', offer.id);
     await createNotification('New Offer Added', `${brand}: ${title}`, 'new_offer');
     
     res.status(201).json(offer);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create offer:', error);
-    res.status(500).json({ error: 'Failed to create offer' });
+    res.status(500).json({ error: 'Failed to create offer', details: error.message });
   }
 });
 
 app.put('/api/offers/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const data = req.body;
+  console.log(`Updating offer ${id}:`, { brand: data.brand, title: data.title });
+  
   if (data.startDate) data.startDate = new Date(data.startDate);
   if (data.endDate) data.endDate = new Date(data.endDate);
 
   try {
     const offer = await prisma.offer.update({
       where: { id },
-      data
+      data: {
+        ...data,
+        productPrice: data.productPrice ? String(data.productPrice) : null,
+      }
     });
 
+    console.log(`Offer ${id} updated.`);
     await createNotification('Offer Updated', `${offer.brand}: ${offer.title}`, 'update_offer');
 
     res.json(offer);
-  } catch (error) {
-    console.error('Failed to update offer:', error);
-    res.status(500).json({ error: 'Failed to update offer' });
+  } catch (error: any) {
+    console.error(`Failed to update offer ${id}:`, error);
+    res.status(500).json({ error: 'Failed to update offer', details: error.message });
   }
 });
 
