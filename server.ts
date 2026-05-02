@@ -127,29 +127,56 @@ app.get('/api/offers', authenticateToken, async (req, res) => {
 
 app.post('/api/offers', authenticateToken, async (req, res) => {
   const { brand, title, description, productPrice, startDate, endDate, imageUrl, status } = req.body;
-  console.log('Creating offer:', { brand, title, createdBy: (req as any).user.id });
+  const userId = (req as any).user?.id;
+  
+  console.log('Creating offer attempt:', { 
+    brand, 
+    title, 
+    userId,
+    hasStartDate: !!startDate,
+    hasEndDate: !!endDate 
+  });
+
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID missing from token' });
+  }
+
   try {
+    // Verify user exists first to provide better error
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      console.error(`User with ID ${userId} not found in database.`);
+      return res.status(401).json({ error: 'Your session is invalid. Please log out and log in again.' });
+    }
+
     const offer = await prisma.offer.create({
       data: {
-        brand,
-        title,
-        description,
+        brand: brand || '',
+        title: title || '',
+        description: description || '',
         productPrice: productPrice ? String(productPrice) : null,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        imageUrl,
+        imageUrl: imageUrl || null,
         status: status || 'active',
-        createdBy: (req as any).user.id
+        createdBy: userId
       }
     });
     
-    console.log('Offer created:', offer.id);
-    await createNotification('New Offer Added', `${brand}: ${title}`, 'new_offer');
+    console.log('Offer created successfully:', offer.id);
+    // Background task
+    createNotification('New Offer Added', `${brand}: ${title}`, 'new_offer').catch(err => {
+      console.error('Deferred notification failed:', err);
+    });
     
     res.status(201).json(offer);
   } catch (error: any) {
-    console.error('Failed to create offer:', error);
-    res.status(500).json({ error: 'Failed to create offer', details: error.message });
+    console.error('Failed to create offer. Full error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create offer', 
+      details: error.message,
+      prismaCode: error.code
+    });
   }
 });
 
