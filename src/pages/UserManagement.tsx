@@ -61,7 +61,7 @@ const UserManagement: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await api.post('/api/users', {
+      await api.post('/users', {
         username,
         password,
         displayName,
@@ -87,7 +87,7 @@ const UserManagement: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Warning: Deleting a user will revoke their system access. Continue?')) {
       try {
-        await api.delete(`/api/users/${userId}`);
+        await api.delete(`/users/${userId}`);
         setUsers(users.filter(u => u.id !== userId));
       } catch (error) {
         console.error(error);
