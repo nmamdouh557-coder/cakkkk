@@ -56,7 +56,11 @@ const AddOffer: React.FC = () => {
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Error adding offer:', error);
-      alert(error.response?.data?.error || 'Failed to save offer. Check your permissions.');
+      const errorMessage = error.response?.data?.error || 'Failed to save offer.';
+      const details = error.response?.data?.details ? `\n\nDetails: ${error.response.data.details}` : '';
+      const code = error.response?.data?.prismaCode ? `\nCode: ${error.response.data.prismaCode}` : '';
+      
+      alert(`${errorMessage}${details}${code}`);
     } finally {
       setLoading(false);
     }
